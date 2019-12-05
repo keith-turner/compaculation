@@ -1,4 +1,4 @@
-package compaculation;
+package compaculation.mgmt;
 
 import java.util.Collection;
 import java.util.Set;
@@ -15,15 +15,15 @@ public class Job {
   }
 
   // todo maybe have a tablet desc object?
-  int getTotalFiles() {
+  public int getTotalFiles() {
     return totalFiles;
   }
 
-  Collection<String> getFiles() {
+  public Collection<String> getFiles() {
     return files;
   }
 
-  String getExecutor() {
+  public String getExecutor() {
     return executor;
   }
 

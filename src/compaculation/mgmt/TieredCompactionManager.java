@@ -1,23 +1,25 @@
-package compaculation;
+package compaculation.mgmt;
 
 import static java.util.stream.Collectors.toSet;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.stream.Collectors;
 
-import compaculation.SubmittedJob.Status;
-import compaculation.ratio.DefaultCompactionStrategy;
+import compaculation.mgmt.SubmittedJob.Status;
 import compaculation.ratio.DefaultCompactionStrategy.SizeWindow;
 
 public class TieredCompactionManager implements CompactionManager {
+
+  private double cRatio;
+
+  public TieredCompactionManager(double compactionRatio) {
+    this.cRatio = compactionRatio;
+  }
 
   public static Set<String> findMapFilesToCompact(Map<String,Long> files, double ratio) {
 
@@ -75,7 +77,7 @@ public class TieredCompactionManager implements CompactionManager {
     submitted.stream().filter(sj -> sj.getStatus() == Status.RUNNING)
         .flatMap(sj -> sj.getFiles().stream()).forEach(filesCopy::remove);
 
-    Set<String> group = findMapFilesToCompact(filesCopy, 3);
+    Set<String> group = findMapFilesToCompact(filesCopy, cRatio);
 
     List<Long> cancellations = new ArrayList<>();
 

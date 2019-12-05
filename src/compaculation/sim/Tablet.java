@@ -1,13 +1,17 @@
-package compaculation;
+package compaculation.sim;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.function.LongSupplier;
 
-import compaculation.SubmittedJob.Status;
+import compaculation.Parameters;
+import compaculation.mgmt.Job;
+import compaculation.mgmt.SubmittedJob;
+import compaculation.mgmt.SubmittedJob.Status;
 
 public class Tablet {
   private Map<String,Long> files = new HashMap<String,Long>();
@@ -20,10 +24,12 @@ public class Tablet {
   private int tabletId;
 
   private long rewritten = 0;
-  
-  Tablet(int tabletId, LongSupplier idSupplier) {
+  private Function<Long,Long> compactionTicker;
+
+  Tablet(Parameters params, int tabletId, LongSupplier idSupplier) {
     this.tabletId = tabletId;
     this.idSupplier = idSupplier;
+    this.compactionTicker = params.compactionTicker;
   }
 
   public void addFile(long size) {
@@ -49,9 +55,9 @@ public class Tablet {
     }
 
     // bytes per millis
-    long bpm = 5000000;
+    // long bpm = 5000000;
 
-    long sleepTime = Math.max(1, size / bpm);
+    long sleepTime = Math.max(1, compactionTicker.apply(size));
     try {
       Thread.sleep(sleepTime);
     } catch (InterruptedException e) {
@@ -60,18 +66,12 @@ public class Tablet {
     }
 
     String nfn = String.format("C%08d.fr", idSupplier.getAsLong());
-    int numFiles;
     synchronized (this) {
       compactionStatus.remove(jobId);
       jobs.remove(jobId);
       files.keySet().removeAll(job.getFiles());
       files.put(nfn, size);
-      numFiles = files.size();
       rewritten += size;
-    }
-
-    if(tabletId == 0) {
-     System.out.println("tablet : "+tabletId+" compacted ["+job+"] to "+nfn+" "+numFiles+" "+size+" "+sleepTime);
     }
   }
 
@@ -122,7 +122,7 @@ public class Tablet {
   public int getTableId() {
     return tabletId;
   }
-  
+
   public synchronized Snapshot getSnapshot() {
     List<SubmittedJob> submitted = new ArrayList<>();
 

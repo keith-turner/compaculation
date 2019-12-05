@@ -1,4 +1,4 @@
-package compaculation;
+package compaculation.mgmt;
 
 public class SubmittedJob extends Job {
 

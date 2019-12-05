@@ -1,4 +1,4 @@
-package compaculation;
+package compaculation.sim;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -6,7 +6,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -15,12 +14,17 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
 
-import compaculation.Tablet.Snapshot;
+import compaculation.Driver.Tablets;
+import compaculation.Parameters;
+import compaculation.mgmt.CompactionManager;
+import compaculation.mgmt.CompactionPlan;
+import compaculation.mgmt.Job;
+import compaculation.sim.Tablet.Snapshot;
 
-public class TabletServer {
+public class TabletServer implements Tablets {
   List<Tablet> tablets;
   CompactionManager compactionManager;
-  Map<String,Executor> executors;
+  Map<String,ExecutorService> executors;
 
   private static long extractTotalFiles(Runnable r) {
     return ((Compactor) r).getJob().getTotalFiles();
@@ -42,24 +46,21 @@ public class TabletServer {
     return new ThreadPoolExecutor(nThreads, nThreads, 0L, TimeUnit.MILLISECONDS, queue);
   }
 
-  public TabletServer(int numTablets, CompactionManager cm) {
+  public TabletServer(Parameters params) {
 
     AtomicLong idcounter = new AtomicLong();
     LongSupplier ids = idcounter::getAndIncrement;
 
-    tablets = new ArrayList<Tablet>(numTablets);
-    for (int i = 0; i < numTablets; i++) {
-      tablets.add(new Tablet(i, ids));
+    tablets = new ArrayList<Tablet>(params.numberOfTablets);
+    for (int i = 0; i < params.numberOfTablets; i++) {
+      tablets.add(new Tablet(params, i, ids));
     }
 
     executors = new HashMap<>();
 
-    executors.put("small", newFixedThreadPool(2));
-    executors.put("medium", newFixedThreadPool(2));
-    executors.put("large", newFixedThreadPool(2));
-    executors.put("huge", newFixedThreadPool(2));
+    params.executors.forEach(ec -> executors.put(ec.name, newFixedThreadPool(ec.numThreads)));
 
-    compactionManager = cm;
+    compactionManager = params.compactionManager;
   }
 
   public void addFile(int tablet, long size) {
@@ -96,15 +97,18 @@ public class TabletServer {
     }
   }
 
-  public void printSummary() {
+  public void printSummary(int tick) {
     var snapshots = tablets.stream().map(Tablet::getSnapshot).collect(Collectors.toList());
-    
+
     var fsum = snapshots.stream().mapToInt(snap -> snap.files.size()).summaryStatistics();
     var csum = snapshots.stream().mapToInt(snap -> snap.jobs.size()).summaryStatistics();
     long totalRewritten = snapshots.stream().mapToLong(snap -> snap.rewritten).sum();
-    long totalSize = snapshots.stream().flatMap(snap -> snap.files.values().stream()).mapToLong(l -> l).sum();
-    
-    System.out.printf("%d %d %f %d %d %f %,d %,d\n",fsum.getMin(), fsum.getMax(), fsum.getAverage(), csum.getMin(), csum.getMax(), csum.getAverage(), totalRewritten, totalSize);
+    long totalSize =
+        snapshots.stream().flatMap(snap -> snap.files.values().stream()).mapToLong(l -> l).sum();
+
+    System.out.printf("%d %d %d %f %d %d %f %,d %,d\n", tick, fsum.getMin(), fsum.getMax(),
+        fsum.getAverage(), csum.getMin(), csum.getMax(), csum.getAverage(), totalRewritten,
+        totalSize);
   }
 
   public void print() {
@@ -120,5 +124,14 @@ public class TabletServer {
 
       System.out.println();
     }
+  }
+
+  @Override
+  public int getNumTablets() {
+    return tablets.size();
+  }
+
+  public void shutdown() {
+    executors.values().forEach(ExecutorService::shutdown);
   }
 }

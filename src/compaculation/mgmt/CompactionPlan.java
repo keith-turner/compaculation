@@ -1,4 +1,4 @@
-package compaculation;
+package compaculation.mgmt;
 
 import java.util.List;
 

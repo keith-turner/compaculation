@@ -27,7 +27,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
-
+//code was copied from Accumulo and modified
 public class DefaultCompactionStrategy {
 
   /**
@@ -75,33 +75,32 @@ public class DefaultCompactionStrategy {
     }
 
     public long bottomSize() {
-      return files.get(last-1).size;
+      return files.get(last - 1).size;
     }
-    
+
     public boolean slideTop() {
       if (first == 0)
         return false;
-      
+
       first--;
-      
+
       sum += files.get(first).size;
-      
+
       return true;
     }
-    
+
     public boolean slideBottom() {
-      if(first >= last) 
+      if (first >= last)
         return false;
-      
+
       last--;
 
       sum -= files.get(last).size;
 
       return true;
-      
+
     }
-    
-    
+
     public boolean slideUp() {
       if (first == 0)
         return false;
@@ -116,7 +115,7 @@ public class DefaultCompactionStrategy {
     }
 
     public SizeWindow tail(int windowSize) {
-      //Preconditions.checkArgument(windowSize > 0);
+      // Preconditions.checkArgument(windowSize > 0);
 
       SizeWindow sub = new SizeWindow();
 
@@ -150,15 +149,15 @@ public class DefaultCompactionStrategy {
 
     public SizeWindow clone() {
       SizeWindow clone = new SizeWindow();
-      
+
       clone.files = files;
       clone.first = first;
       clone.last = last;
       clone.sum = sum;
-      
+
       return clone;
     }
-    
+
     @Override
     public String toString() {
       return "size:" + size() + " sum:" + sum() + " first:" + first + " last:" + last + " topSize:"
@@ -185,53 +184,52 @@ public class DefaultCompactionStrategy {
     }
   }
 
-  public static Set<String> findMapFilesToCompact2(Map<String, Long> candidates, double ratio, int maxFilesToCompact, int maxFilesPerTablet) {
+  public static Set<String> findMapFilesToCompact2(Map<String,Long> candidates, double ratio,
+      int maxFilesToCompact, int maxFilesPerTablet) {
     SizeWindow all = new SizeWindow(candidates);
-    
+
     if (candidates.size() <= 1)
       return null;
-    
-    
+
     SizeWindow best = null;
-    
+
     SizeWindow window = all.tail(2);
-    
-    
-    while(true) {
+
+    while (true) {
       if (window.topSize() * ratio <= window.sum()) {
-        if(best == null || best.size() < window.size()) {
+        if (best == null || best.size() < window.size()) {
           best = window.clone();
-          if(best.size() == maxFilesToCompact)
+          if (best.size() == maxFilesToCompact)
             break;
         }
       }
-    
-      if(!window.slideTop()) {
+
+      if (!window.slideTop()) {
         break;
       }
-    
-      if(window.size() > maxFilesToCompact) {
+
+      if (window.size() > maxFilesToCompact) {
         window.slideBottom();
       }
-    
-      while(window.size() > 1 && window.bottomSize() * 10 < window.topSize()) {
+
+      while (window.size() > 1 && window.bottomSize() * 10 < window.topSize()) {
         window.slideBottom();
       }
-      
+
     }
-    
-    
-    if(best != null)
+
+    if (best != null)
       return best.getFiles();
-    
+
     return null;
   }
-  
-  public static Set<String> findMapFilesToCompact(Map<String, Long> candidates, double ratio, int maxFilesToCompact, int maxFilesPerTablet) {
-    
+
+  public static Set<String> findMapFilesToCompact(Map<String,Long> candidates, double ratio,
+      int maxFilesToCompact, int maxFilesPerTablet) {
+
     if (candidates.size() <= 1)
       return null;
-    
+
     int minFilesToCompact = 0;
     if (candidates.size() > maxFilesPerTablet)
       minFilesToCompact = candidates.size() - maxFilesPerTablet + 1;

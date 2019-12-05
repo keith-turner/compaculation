@@ -1,4 +1,6 @@
-package compaculation;
+package compaculation.sim;
+
+import compaculation.mgmt.Job;
 
 public class Compactor implements Runnable {
 
