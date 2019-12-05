@@ -12,7 +12,7 @@ public class Main {
 
     params.numberOfTablets = 100;
     params.compactionTicker = size ->  size / 5000000;
-    //params.compactionManager = new DefaultCompactionManager(1.5);
+    //params.compactionManager = new DefaultCompactionManager(3);
     params.compactionManager = new TieredCompactionManager(3);
     params.executors = List.of(new ExecutorConfig("huge", 2), new ExecutorConfig("large", 2),
         new ExecutorConfig("medium", 2), new ExecutorConfig("small", 2));
