@@ -10,7 +10,7 @@ compactions can be scheduled for each tablet.
 The simulation has the following properties.
 
  * One tick per millisecond.  A tick simulates a second of real time.
- * When a simulation compaction executes in a thrad pool is sleeps a number of ticks based on the input data size.  
+ * When a simulation compaction executes in a thread pool is sleeps a number of ticks based on the input data size.  
  * Every tick, the simulation adds files to zero or more tablets.
 
 The following commands can be used to run the simulation.  To change the simulation, edit the [Parameters](src/compaculation/Parameters.java) object in [Main](src/compaculation/Main.java).
