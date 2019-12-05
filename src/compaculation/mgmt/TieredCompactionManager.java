@@ -21,6 +21,7 @@ public class TieredCompactionManager implements CompactionManager {
     this.cRatio = compactionRatio;
   }
 
+  // see https://gist.github.com/keith-turner/16125790c6ff0d86c67795a08d2c057f
   public static Set<String> findMapFilesToCompact(Map<String,Long> files, double ratio) {
 
     if (files.size() <= 1)
