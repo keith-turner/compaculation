@@ -13,7 +13,7 @@ The simulation has the following properties.
  * When a simulation compaction executes in a thrad pool is sleeps a number of ticks based on the input data size.  
  * Every tick, the simulation adds files to zero or more tablets.
 
-The following commands can be used to run the simulation.
+The following commands can be used to run the simulation.  To change the simulation, edit the [Parameters](src/compaculation/Parameters.java) object in [Main](src/compaculation/Main.java).
 
 ```
 $ mvn compile
