@@ -105,7 +105,7 @@ public class TieredCompactionManager implements CompactionManager {
         }
       }
 
-      // TODO do we went to queue a job to an executor if we already have something running their??
+      // TODO do we want to queue a job to an executor if we already have something running there??
       // determine which executor to use based on the size of the files
       String executor = getExecutor(group.stream().mapToLong(files::get).sum());
 
