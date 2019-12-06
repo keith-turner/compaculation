@@ -78,7 +78,7 @@ public class DefaultCompactionStrategy {
       return files.get(last - 1).size;
     }
 
-    public boolean slideTop() {
+    public boolean slideTopUp() {
       if (first == 0)
         return false;
 
@@ -89,7 +89,7 @@ public class DefaultCompactionStrategy {
       return true;
     }
 
-    public boolean slideBottom() {
+    public boolean slideBottomUp() {
       if (first >= last)
         return false;
 
@@ -182,46 +182,6 @@ public class DefaultCompactionStrategy {
     String getFile() {
       return file;
     }
-  }
-
-  public static Set<String> findMapFilesToCompact2(Map<String,Long> candidates, double ratio,
-      int maxFilesToCompact, int maxFilesPerTablet) {
-    SizeWindow all = new SizeWindow(candidates);
-
-    if (candidates.size() <= 1)
-      return null;
-
-    SizeWindow best = null;
-
-    SizeWindow window = all.tail(2);
-
-    while (true) {
-      if (window.topSize() * ratio <= window.sum()) {
-        if (best == null || best.size() < window.size()) {
-          best = window.clone();
-          if (best.size() == maxFilesToCompact)
-            break;
-        }
-      }
-
-      if (!window.slideTop()) {
-        break;
-      }
-
-      if (window.size() > maxFilesToCompact) {
-        window.slideBottom();
-      }
-
-      while (window.size() > 1 && window.bottomSize() * 10 < window.topSize()) {
-        window.slideBottom();
-      }
-
-    }
-
-    if (best != null)
-      return best.getFiles();
-
-    return null;
   }
 
   public static Set<String> findMapFilesToCompact(Map<String,Long> candidates, double ratio,

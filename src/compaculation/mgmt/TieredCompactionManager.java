@@ -27,18 +27,23 @@ public class TieredCompactionManager implements CompactionManager {
     if (files.size() <= 1)
       return Collections.emptySet();
 
+    // create a window with the smallest two files
     SizeWindow window = new SizeWindow(files).tail(2);
 
     SizeWindow goodWindow = null;
 
     do {
       if (window.topSize() * ratio <= window.sum()) {
+        // this window matched the compaction ratio, so keep it
         goodWindow = window.clone();
       } else if (goodWindow != null) {
-        // a smaller window matched the CR, so use that
+        // for this case a previous set of files matched the CR, however we just saw a much larger
+        // file that caused us to no longer match the CR.. so use the previous set.
         break;
       }
-    } while (window.slideTop());
+      // the call slideTopUp() will move the top of the window up adding the next smallest file to
+      // the window.
+    } while (window.slideTopUp());
 
     if (goodWindow == null) {
       return Collections.emptySet();
@@ -67,14 +72,17 @@ public class TieredCompactionManager implements CompactionManager {
     // TODO only create if needed in an elegant way.
     Map<String,Long> filesCopy = new HashMap<>(files);
 
-    // find minimum file size for running compactions
+    // find maximum file size for running compactions
     OptionalLong maxCompacting = submitted.stream().filter(sj -> sj.getStatus() == Status.RUNNING)
         .flatMap(sj -> sj.getFiles().stream()).mapToLong(files::get).max();
 
     if (maxCompacting.isPresent()) {
+      // remove any files from consideration that are larger than the max file size compacting....
+      // TODO explain why
       filesCopy.values().removeIf(size -> size >= maxCompacting.getAsLong());
     }
 
+    // remove any files from consideration that are in use by a running compaction
     submitted.stream().filter(sj -> sj.getStatus() == Status.RUNNING)
         .flatMap(sj -> sj.getFiles().stream()).forEach(filesCopy::remove);
 
@@ -83,18 +91,22 @@ public class TieredCompactionManager implements CompactionManager {
     List<Long> cancellations = new ArrayList<>();
 
     if (group.size() > 0) {
+      // find all files related to queued jobs
       Set<String> queued = submitted.stream().filter(sj -> sj.getStatus() == Status.QUEUED)
           .flatMap(sj -> sj.getFiles().stream()).collect(toSet());
 
       if (!queued.isEmpty()) {
         if (queued.equals(group)) {
-          // currently queued compactions are fine
+          // currently queued jobs is the same set of files we want to compact, so just use that
           return new CompactionPlan();
         } else {
+          // currently queued jobs are different than what we want to compact, so cancel them
           submitted.stream().map(sj -> sj.getId()).forEach(cancellations::add);
         }
       }
 
+      // TODO do we went to queue a job to an executor if we already have something running their??
+      // determine which executor to use based on the size of the files
       String executor = getExecutor(group.stream().mapToLong(files::get).sum());
 
       Job job = new Job(files.size(), group, executor);
