@@ -8,12 +8,29 @@ import compaculation.mgmt.TieredCompactionManager;
 
 public class Main {
   public static void main(String[] args) {
+    if (args.length != 2) {
+      printUsage();
+      return;
+    }
+
+    double ratio = Double.parseDouble(args[0]);
+
     Parameters params = new Parameters();
 
     params.numberOfTablets = 100;
-    params.compactionTicker = size ->  size / 5000000;
-    //params.compactionManager = new DefaultCompactionManager(3);
-    params.compactionManager = new TieredCompactionManager(3);
+    params.compactionTicker = size -> size / 5000000;
+    switch (args[1]) {
+      case "NEW":
+        params.compactionManager = new TieredCompactionManager(ratio);
+        break;
+      case "OLD":
+        params.compactionManager = new DefaultCompactionManager(ratio);
+        break;
+      default:
+        printUsage();
+        return;
+    }
+
     params.executors = List.of(new ExecutorConfig("huge", 2), new ExecutorConfig("large", 2),
         new ExecutorConfig("medium", 2), new ExecutorConfig("small", 2));
 
@@ -34,5 +51,9 @@ public class Main {
     };
 
     new Compacultation(params).run();
+  }
+
+  private static void printUsage() {
+    System.err.println("Usage : " + Main.class.getName() + " <ratio> OLD|NEW");
   }
 }

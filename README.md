@@ -17,7 +17,7 @@ The following commands can be used to run the simulation.  To change the simulat
 
 ```
 $ mvn compile
-$ java -cp target/classes compaculation.Main > results.txt
+$ java -cp target/classes compaculation.Main 3 NEW > results.txt
 ```
 
 After running, the following command will plot the average number of files per

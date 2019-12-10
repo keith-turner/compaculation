@@ -4,14 +4,15 @@ import static java.util.stream.Collectors.toSet;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.OptionalLong;
 import java.util.Set;
 
 import compaculation.mgmt.SubmittedJob.Status;
-import compaculation.ratio.DefaultCompactionStrategy.SizeWindow;
 
 public class TieredCompactionManager implements CompactionManager {
 
@@ -23,33 +24,63 @@ public class TieredCompactionManager implements CompactionManager {
 
   // see https://gist.github.com/keith-turner/16125790c6ff0d86c67795a08d2c057f
   public static Set<String> findMapFilesToCompact(Map<String,Long> files, double ratio) {
-
     if (files.size() <= 1)
       return Collections.emptySet();
 
-    // create a window with the smallest two files
-    SizeWindow window = new SizeWindow(files).tail(2);
+    List<Entry<String,Long>> sortedFiles = new ArrayList<>(files.entrySet());
 
-    SizeWindow goodWindow = null;
+    // sort from smallest file to largest
+    Collections.sort(sortedFiles,
+        Comparator.comparingLong(Entry<String,Long>::getValue).thenComparing(Entry::getKey));
 
-    do {
-      if (window.topSize() * ratio <= window.sum()) {
-        // this window matched the compaction ratio, so keep it
-        goodWindow = window.clone();
-      } else if (goodWindow != null) {
-        // for this case a previous set of files matched the CR, however we just saw a much larger
-        // file that caused us to no longer match the CR.. so use the previous set.
+    // index into sortedFiles, everything at and below this index is a good set of files to compact
+    int goodIndex = -1;
+
+    long sum = sortedFiles.get(0).getValue();
+
+    for (int c = 1; c < sortedFiles.size(); c++) {
+      long currSize = sortedFiles.get(c).getValue();
+      sum += currSize;
+
+      if (currSize * ratio < sum) {
+        goodIndex = c;
+      } else if (goodIndex > 0 && sum < 2 * currSize) {
         break;
       }
-      // the call slideTopUp() will move the top of the window up adding the next smallest file to
-      // the window.
-    } while (window.slideTopUp());
-
-    if (goodWindow == null) {
-      return Collections.emptySet();
     }
 
-    return goodWindow.getFiles();
+    if (goodIndex == -1)
+      return Collections.emptySet();
+
+    return sortedFiles.subList(0, goodIndex + 1).stream().map(Entry<String,Long>::getKey)
+        .collect(toSet());
+  }
+
+  //TODO test
+  public static Map<String,Long> getSmallestFilesWithSumLessThan(Map<String,Long> files,
+      long cutoff) {
+    List<Entry<String,Long>> sortedFiles = new ArrayList<>(files.entrySet());
+
+    // sort from smallest file to largest
+    Collections.sort(sortedFiles,
+        Comparator.comparingLong(Entry<String,Long>::getValue).thenComparing(Entry::getKey));
+
+    HashMap<String,Long> ret = new HashMap<>();
+
+    long sum = 0;
+
+    for (int index = 0; index < sortedFiles.size(); index++) {
+      var e = sortedFiles.get(index);
+      sum += e.getValue();
+
+      if (sum < cutoff) {
+        ret.put(e.getKey(), e.getValue());
+      } else {
+        break;
+      }
+    }
+
+    return ret;
   }
 
   String getExecutor(long size) {
@@ -72,14 +103,13 @@ public class TieredCompactionManager implements CompactionManager {
     // TODO only create if needed in an elegant way.
     Map<String,Long> filesCopy = new HashMap<>(files);
 
-    // find maximum file size for running compactions
-    OptionalLong maxCompacting = submitted.stream().filter(sj -> sj.getStatus() == Status.RUNNING)
-        .flatMap(sj -> sj.getFiles().stream()).mapToLong(files::get).max();
+    // find minimum file size for running compactions
+    OptionalLong minCompacting = submitted.stream().filter(sj -> sj.getStatus() == Status.RUNNING)
+        .flatMap(sj -> sj.getFiles().stream()).mapToLong(files::get).min();
 
-    if (maxCompacting.isPresent()) {
-      // remove any files from consideration that are larger than the max file size compacting....
+    if (minCompacting.isPresent()) {
       // TODO explain why
-      filesCopy.values().removeIf(size -> size >= maxCompacting.getAsLong());
+      filesCopy = getSmallestFilesWithSumLessThan(filesCopy, minCompacting.getAsLong());
     }
 
     // remove any files from consideration that are in use by a running compaction
