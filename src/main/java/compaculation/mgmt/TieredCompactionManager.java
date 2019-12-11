@@ -84,6 +84,7 @@ public class TieredCompactionManager implements CompactionManager {
     if (files.size() <= 1)
       return Collections.emptySet();
 
+    // sort files from smallest to largest. So position 0 has the smallest file.
     List<Entry<String,Long>> sortedFiles = sortByFileSize(files);
 
     // index into sortedFiles, everything at and below this index is a good set of files to compact
@@ -98,15 +99,14 @@ public class TieredCompactionManager implements CompactionManager {
       if (currSize * ratio < sum) {
         goodIndex = c;
 
+        // look ahead to the next file to see if this a good stopping point
         if (c + 1 < sortedFiles.size()) {
           long nextSize = sortedFiles.get(c + 1).getValue();
           boolean nextMeetsCR = nextSize * ratio < nextSize + sum;
 
           if (!nextMeetsCR && sum < nextSize) {
-            // The current file meets the compaction ratio and the next largest file does not. The
-            // sum of the files seen so far is less than the size of the next file. These two
-            // conditions indicate the largest set of small files to compact was found, so stop
-            // looking.
+            // These two conditions indicate the largest set of small files to compact was found, so
+            // stop looking.
             break;
           }
         }
