@@ -43,9 +43,9 @@ public class TieredCompactionManager implements CompactionManager {
 
     Set<String> group = findMapFilesToCompact(filesCopy, cRatio);
 
-    List<Long> cancellations = new ArrayList<>();
-
     if (group.size() > 0) {
+      List<Long> cancellations = new ArrayList<>();
+
       // find all files related to queued jobs
       Set<String> queued = submitted.stream().filter(sj -> sj.getStatus() == Status.QUEUED)
           .flatMap(sj -> sj.getFiles().stream()).collect(toSet());
@@ -56,7 +56,8 @@ public class TieredCompactionManager implements CompactionManager {
           return new CompactionPlan();
         } else {
           // currently queued jobs are different than what we want to compact, so cancel them
-          submitted.stream().map(sj -> sj.getId()).forEach(cancellations::add);
+          submitted.stream().filter(sj -> sj.getStatus() == Status.QUEUED).map(sj -> sj.getId())
+              .forEach(cancellations::add);
         }
       }
 
