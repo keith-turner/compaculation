@@ -33,7 +33,8 @@ public class TieredCompactionManager implements CompactionManager {
         .flatMap(sj -> sj.getFiles().stream()).mapToLong(files::get).min();
 
     if (minCompacting.isPresent()) {
-      // TODO explain why
+      // This is done to ensure that compactions over time result in the mimimum number of files.
+      // See the gist for more info.
       filesCopy = getSmallestFilesWithSumLessThan(filesCopy, minCompacting.getAsLong());
     }
 
@@ -121,7 +122,6 @@ public class TieredCompactionManager implements CompactionManager {
         .collect(toSet());
   }
 
-  // TODO test
   public static Map<String,Long> getSmallestFilesWithSumLessThan(Map<String,Long> files,
       long cutoff) {
     List<Entry<String,Long>> sortedFiles = sortByFileSize(files);
