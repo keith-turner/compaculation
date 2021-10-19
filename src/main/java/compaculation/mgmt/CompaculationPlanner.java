@@ -7,6 +7,6 @@ import java.util.Map;
  * The represents the interface I would eventually like to have in Accumulo for making tablet
  * compaction decision.
  */
-public interface CompactionManager {
+public interface CompaculationPlanner {
   CompactionPlan makePlan(Map<String,Long> files, List<SubmittedJob> submitted);
 }

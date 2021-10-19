@@ -1,1 +1,2 @@
-module compaculation {}
+module compaculation {
+	requires accumulo.core;}

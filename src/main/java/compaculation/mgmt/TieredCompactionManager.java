@@ -14,7 +14,7 @@ import java.util.Set;
 
 import compaculation.mgmt.SubmittedJob.Status;
 
-public class TieredCompactionManager implements CompactionManager {
+public class TieredCompactionManager implements CompaculationPlanner {
 
   private double cRatio;
 

@@ -16,14 +16,14 @@ import java.util.stream.Collectors;
 
 import compaculation.Driver.Tablets;
 import compaculation.Parameters;
-import compaculation.mgmt.CompactionManager;
+import compaculation.mgmt.CompaculationPlanner;
 import compaculation.mgmt.CompactionPlan;
 import compaculation.mgmt.Job;
 import compaculation.sim.Tablet.Snapshot;
 
 public class TabletServer implements Tablets {
   List<Tablet> tablets;
-  CompactionManager compactionManager;
+  CompaculationPlanner compactionManager;
   Map<String,ExecutorService> executors;
 
   private static long extractTotalFiles(Runnable r) {

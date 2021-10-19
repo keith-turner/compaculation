@@ -9,7 +9,7 @@ import compaculation.mgmt.SubmittedJob.Status;
 import compaculation.ratio.DefaultCompactionStrategy;
 
 // Attempt to simulate accumulo's current default compaction behavior
-public class DefaultCompactionManager implements CompactionManager {
+public class DefaultCompactionManager implements CompaculationPlanner {
 
   private double ratio;
 
