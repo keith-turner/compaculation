@@ -16,7 +16,7 @@ public class DefaultCompactionManager implements CompaculationPlanner {
   public DefaultCompactionManager(double compactionRatio) {
     this.ratio = compactionRatio;
   }
-  
+
   public static Set<String> findMapFilesToCompact(Map<String,Long> files, double ratio) {
     var group = DefaultCompactionStrategy.findMapFilesToCompact(files, ratio, 10, 15);
     if (group == null)

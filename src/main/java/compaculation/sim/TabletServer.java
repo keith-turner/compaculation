@@ -3,9 +3,10 @@ package compaculation.sim;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -14,30 +15,28 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
 
+import org.apache.accumulo.core.client.admin.compaction.CompactableFile;
+import org.apache.accumulo.core.spi.compaction.CompactionExecutorId;
+import org.apache.accumulo.core.spi.compaction.CompactionJob;
+import org.apache.accumulo.core.spi.compaction.CompactionPlan;
+
 import compaculation.Driver.Tablets;
 import compaculation.Parameters;
 import compaculation.mgmt.CompaculationPlanner;
-import compaculation.mgmt.CompactionPlan;
-import compaculation.mgmt.Job;
 import compaculation.sim.Tablet.Snapshot;
 
 public class TabletServer implements Tablets {
   List<Tablet> tablets;
   CompaculationPlanner compactionManager;
-  Map<String,ExecutorService> executors;
+  Map<CompactionExecutorId,ExecutorService> executors;
 
-  private static long extractTotalFiles(Runnable r) {
-    return ((Compactor) r).getJob().getTotalFiles();
-  }
-
-  private static long extractJobFiles(Runnable r) {
-    return ((Compactor) r).getJob().getFiles().size();
+  private static short extractPriority(Runnable r) {
+    return ((Compactor) r).getJob().getPriority();
   }
 
   private static ExecutorService newFixedThreadPool(int nThreads) {
 
-    var comparator = Comparator.comparingLong(TabletServer::extractTotalFiles)
-        .thenComparingLong(TabletServer::extractJobFiles).reversed();
+    var comparator = Comparator.comparingInt(TabletServer::extractPriority).reversed();
 
     PriorityBlockingQueue<Runnable> queue = new PriorityBlockingQueue<Runnable>(100, comparator);
 
@@ -58,7 +57,7 @@ public class TabletServer implements Tablets {
 
     executors = new HashMap<>();
 
-    params.executors.forEach(ec -> executors.put(ec.name, newFixedThreadPool(ec.numThreads)));
+    params.executors.forEach(ec -> executors.put(ec.id, newFixedThreadPool(ec.numThreads)));
 
     compactionManager = params.compactionManager;
   }
@@ -81,15 +80,16 @@ public class TabletServer implements Tablets {
     for (Tablet tablet : tablets) {
       Snapshot snapshot = tablet.getSnapshot();
 
-      CompactionPlan plan = compactionManager.makePlan(snapshot.files, snapshot.jobs);
+      Set<CompactableFile> candidates = new HashSet<>(snapshot.files);
+      snapshot.running.forEach(job -> candidates.removeAll(job.getFiles()));
 
-      boolean allCancelled = true;
-      for (Long id : plan.cancellations) {
-        allCancelled &= tablet.cancelCompaction(id);
-      }
+      CompactionPlan plan =
+          compactionManager.makePlan(snapshot.files, candidates, snapshot.running);
+
+      boolean allCancelled = tablet.cancelCompactions(plan, snapshot.running);
 
       if (allCancelled) {
-        for (Job job : plan.jobs) {
+        for (CompactionJob job : plan.getJobs()) {
           var ct = tablet.newCompactor(job);
           executors.get(job.getExecutor()).execute(new Compactor(job, ct));
         }
@@ -101,10 +101,11 @@ public class TabletServer implements Tablets {
     var snapshots = tablets.stream().map(Tablet::getSnapshot).collect(Collectors.toList());
 
     var fsum = snapshots.stream().mapToInt(snap -> snap.files.size()).summaryStatistics();
-    var csum = snapshots.stream().mapToInt(snap -> snap.jobs.size()).summaryStatistics();
+    var csum = snapshots.stream().mapToInt(snap -> snap.running.size() + snap.queued.size())
+        .summaryStatistics();
     long totalRewritten = snapshots.stream().mapToLong(snap -> snap.rewritten).sum();
-    long totalSize =
-        snapshots.stream().flatMap(snap -> snap.files.values().stream()).mapToLong(l -> l).sum();
+    long totalSize = snapshots.stream().flatMap(snap -> snap.files.stream())
+        .mapToLong(cf -> cf.getEstimatedSize()).sum();
 
     System.out.printf("%d %d %d %f %d %d %f %,d %,d\n", tick, fsum.getMin(), fsum.getMax(),
         fsum.getAverage(), csum.getMin(), csum.getMax(), csum.getAverage(), totalRewritten,
@@ -116,11 +117,12 @@ public class TabletServer implements Tablets {
       var snap = tablet.getSnapshot();
       System.out.println("Tablet : " + tablet.getTableId());
 
-      Comparator<Map.Entry<String,Long>> comp = Comparator.comparing(Entry::getValue);
-      snap.files.entrySet().stream().sorted(comp.reversed())
-          .forEach(e -> System.out.println("  " + e.getKey() + " " + e.getValue()));
+      Comparator<CompactableFile> comp = Comparator.comparing(CompactableFile::getEstimatedSize);
+      snap.files.stream().sorted(comp.reversed())
+          .forEach(e -> System.out.println("  " + e.getFileName() + " " + e.getEstimatedSize()));
 
-      snap.jobs.forEach(System.out::println);
+      snap.queued.forEach(job -> System.out.println("QUEUED " + job));
+      snap.running.forEach(job -> System.out.println("RUNNING " + job));
 
       System.out.println();
     }

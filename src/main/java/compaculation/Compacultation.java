@@ -36,9 +36,9 @@ public class Compacultation {
 
     }
 
-    //tserver.print();
+    // tserver.print();
     tserver.printSummary(tick);
-    
+
     tserver.shutdown();
   }
 

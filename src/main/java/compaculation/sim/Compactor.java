@@ -1,18 +1,18 @@
 package compaculation.sim;
 
-import compaculation.mgmt.Job;
+import org.apache.accumulo.core.spi.compaction.CompactionJob;
 
 public class Compactor implements Runnable {
 
-  private Job job;
+  private CompactionJob job;
   private Runnable compactor;
 
-  Compactor(Job job, Runnable compactor) {
+  Compactor(CompactionJob job, Runnable compactor) {
     this.job = job;
     this.compactor = compactor;
   }
 
-  public Job getJob() {
+  public CompactionJob getJob() {
     return job;
   }
 
