@@ -20,9 +20,10 @@ public class Main {
 
     params.numberOfTablets = 100;
     params.compactionTicker = size -> size / 5000000;
-    var plannerOpts = Map.of("maxOpen","10","executors","[{'name':'small','type':'internal','maxSize':'32M','numThreads':2},{'name':'medium','type':'internal','maxSize':'128M','numThreads':2},{'name':'large','type':'internal','numThreads':2}]");    
-    params.planner = new AccumuloPlanner(ratio, DefaultCompactionPlanner.class.getName(), plannerOpts);
-
+    var plannerOpts = Map.of("maxOpen", "10", "executors",
+        "[{'name':'small','type':'internal','maxSize':'32M','numThreads':2},{'name':'medium','type':'internal','maxSize':'128M','numThreads':2},{'name':'large','type':'internal','numThreads':2}]");
+    params.planner =
+        new AccumuloPlanner(ratio, DefaultCompactionPlanner.class.getName(), plannerOpts);
 
     Random random = new Random();
 

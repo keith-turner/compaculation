@@ -7,8 +7,11 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
+import org.apache.accumulo.core.client.TableNotFoundException;
 import org.apache.accumulo.core.client.admin.compaction.CompactableFile;
+import org.apache.accumulo.core.conf.ConfigurationCopy;
 import org.apache.accumulo.core.data.TableId;
+import org.apache.accumulo.core.file.blockfile.impl.SeekableByteArrayInputStream;
 import org.apache.accumulo.core.spi.common.ServiceEnvironment;
 import org.apache.accumulo.core.spi.compaction.CompactionExecutorId;
 import org.apache.accumulo.core.spi.compaction.CompactionJob;
@@ -19,6 +22,7 @@ import org.apache.accumulo.core.spi.compaction.CompactionPlanner;
 import org.apache.accumulo.core.spi.compaction.CompactionPlanner.InitParameters;
 import org.apache.accumulo.core.spi.compaction.CompactionPlanner.PlanningParameters;
 import org.apache.accumulo.core.spi.compaction.ExecutorManager;
+import org.apache.accumulo.core.util.ConfigurationImpl;
 
 import compaculation.ExecutorConfig;
 
@@ -28,10 +32,10 @@ public class AccumuloPlanner implements CompaculationPlanner {
   private List<ExecutorConfig> execConfig = new ArrayList<>();
   private double ratio;
 
-  public AccumuloPlanner(double ratio, String className, Map<String, String> options) {
-    
+  public AccumuloPlanner(double ratio, String className, Map<String,String> options) {
+
     this.ratio = ratio;
-    
+
     try {
       planner = AccumuloPlanner.class.getClassLoader().loadClass(className)
           .asSubclass(CompactionPlanner.class).newInstance();
@@ -39,7 +43,34 @@ public class AccumuloPlanner implements CompaculationPlanner {
 
         @Override
         public ServiceEnvironment getServiceEnvironment() {
-          throw new UnsupportedOperationException();
+          return new ServiceEnvironment() {
+
+            @Override
+            public String getTableName(TableId tableId) throws TableNotFoundException {
+              throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public <T> T instantiate(String className, Class<T> base) throws Exception {
+              throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public <T> T instantiate(TableId tableId, String className, Class<T> base)
+                throws Exception {
+              throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public Configuration getConfiguration() {
+              return new ConfigurationImpl(new ConfigurationCopy());
+            }
+
+            @Override
+            public Configuration getConfiguration(TableId tableId) {
+              return new ConfigurationImpl(new ConfigurationCopy());
+            }
+          };
         }
 
         @Override
@@ -49,7 +80,7 @@ public class AccumuloPlanner implements CompaculationPlanner {
 
         @Override
         public String getFullyQualifiedOption(String key) {
-          throw new UnsupportedOperationException();
+          return key;
         }
 
         @Override
