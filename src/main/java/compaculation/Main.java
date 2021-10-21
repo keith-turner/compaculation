@@ -1,14 +1,15 @@
 package compaculation;
 
-import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
-import compaculation.mgmt.DefaultCompactionManager;
-import compaculation.mgmt.TieredCompactionManager;
+import org.apache.accumulo.core.spi.compaction.DefaultCompactionPlanner;
+
+import compaculation.mgmt.AccumuloPlanner;
 
 public class Main {
   public static void main(String[] args) {
-    if (args.length != 2) {
+    if (args.length != 1) {
       printUsage();
       return;
     }
@@ -19,20 +20,9 @@ public class Main {
 
     params.numberOfTablets = 100;
     params.compactionTicker = size -> size / 5000000;
-    switch (args[1]) {
-      case "NEW":
-        params.compactionManager = new TieredCompactionManager(ratio);
-        break;
-      case "OLD":
-        params.compactionManager = new DefaultCompactionManager(ratio);
-        break;
-      default:
-        printUsage();
-        return;
-    }
+    var plannerOpts = Map.of("maxOpen","10","executors","[{'name':'small','type':'internal','maxSize':'32M','numThreads':2},{'name':'medium','type':'internal','maxSize':'128M','numThreads':2},{'name':'large','type':'internal','numThreads':2}]");    
+    params.planner = new AccumuloPlanner(ratio, DefaultCompactionPlanner.class.getName(), plannerOpts);
 
-    params.executors = List.of(new ExecutorConfig("huge", 2), new ExecutorConfig("large", 2),
-        new ExecutorConfig("medium", 2), new ExecutorConfig("small", 2));
 
     Random random = new Random();
 
@@ -54,6 +44,6 @@ public class Main {
   }
 
   private static void printUsage() {
-    System.err.println("Usage : " + Main.class.getName() + " <ratio> OLD|NEW");
+    System.err.println("Usage : " + Main.class.getName() + " <ratio>");
   }
 }

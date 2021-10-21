@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 
 import org.apache.accumulo.core.client.admin.compaction.CompactableFile;
@@ -21,14 +22,18 @@ import org.apache.accumulo.core.spi.compaction.ExecutorManager;
 
 import compaculation.ExecutorConfig;
 
-public class AccumuloCompactionManager implements CompaculationPlanner {
+public class AccumuloPlanner implements CompaculationPlanner {
 
   private CompactionPlanner planner;
   private List<ExecutorConfig> execConfig = new ArrayList<>();
+  private double ratio;
 
-  AccumuloCompactionManager(String className, Map<String,String> options) {
+  public AccumuloPlanner(double ratio, String className, Map<String, String> options) {
+    
+    this.ratio = ratio;
+    
     try {
-      planner = AccumuloCompactionManager.class.getClassLoader().loadClass(className)
+      planner = AccumuloPlanner.class.getClassLoader().loadClass(className)
           .asSubclass(CompactionPlanner.class).newInstance();
       planner.init(new InitParameters() {
 
@@ -96,8 +101,7 @@ public class AccumuloCompactionManager implements CompaculationPlanner {
 
       @Override
       public double getRatio() {
-        // TODO Auto-generated method stub
-        return 2;
+        return ratio;
       }
 
       @Override
@@ -152,6 +156,11 @@ public class AccumuloCompactionManager implements CompaculationPlanner {
     });
 
     return aplan;
+  }
+
+  @Override
+  public Collection<ExecutorConfig> getExecutorConfig() {
+    return execConfig;
   }
 
 }

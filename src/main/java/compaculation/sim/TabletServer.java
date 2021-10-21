@@ -57,9 +57,10 @@ public class TabletServer implements Tablets {
 
     executors = new HashMap<>();
 
-    params.executors.forEach(ec -> executors.put(ec.id, newFixedThreadPool(ec.numThreads)));
+    params.planner.getExecutorConfig()
+        .forEach(ec -> executors.put(ec.id, newFixedThreadPool(ec.numThreads)));
 
-    compactionManager = params.compactionManager;
+    compactionManager = params.planner;
   }
 
   public void addFile(int tablet, long size) {
