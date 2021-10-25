@@ -21,7 +21,7 @@ public class Main {
     params.numberOfTablets = 100;
     params.compactionTicker = size -> size / 5_000_000;
     var plannerOpts = Map.of("maxOpen", "10", "executors",
-        "[{'name':'small','type':'internal','maxSize':'128M','numThreads':3},{'name':'large','type':'internal','numThreads':1}]");
+        "[{'name':'small','type':'internal','maxSize':'128M','numThreads':3},{'name':'large','type':'internal','numThreads':3}]");
     params.planner =
         new AccumuloPlanner(ratio, DefaultCompactionPlanner.class.getName(), plannerOpts);
 
