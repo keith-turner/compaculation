@@ -165,6 +165,7 @@ public class AccumuloPlanner implements CompaculationPlanner {
           @Override
           public Builder addJob(short priority, CompactionExecutorId executor,
               Collection<CompactableFile> group) {
+            priority = (short) (allFiles.size() + group.size());
             jobs.add(new Job(priority, group, executor));
             return this;
           }

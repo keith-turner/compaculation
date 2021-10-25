@@ -2,13 +2,12 @@ package compaculation.sim;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
@@ -18,17 +17,15 @@ import org.apache.accumulo.core.client.admin.compaction.CompactableFile;
 import org.apache.accumulo.core.spi.compaction.CompactionJob;
 import org.apache.accumulo.core.spi.compaction.CompactionPlan;
 
+import com.google.common.collect.Sets;
+
 import compaculation.Parameters;
-import compaculation.mgmt.Job;
 
 public class Tablet {
 
-  enum Status {
-    QUEUED, RUNNING
-  }
-
   private Set<CompactableFile> files = new HashSet<>();
-  private Map<CompactionJob,Status> jobs = new HashMap<>();
+  private Set<CompactionJob> queuedJobs = new HashSet<>();
+  private Set<CompactionJob> runningJobs = new HashSet<>();
 
   // TODO maybe have a server context
   private LongSupplier idSupplier;
@@ -65,10 +62,13 @@ public class Tablet {
   private void compact(CompactionJob job) {
 
     synchronized (this) {
-      if (jobs.put(job, Status.RUNNING) != Status.QUEUED) {
-        jobs.remove(job);
+      if (queuedJobs.remove(job)) {
+        runningJobs.add(job);
+      } else {
         return;
       }
+
+      // System.out.println("Compacting "+tabletId+" files:"+files+" job:"+job.getFiles());
     }
 
     // bytes per millis
@@ -87,7 +87,7 @@ public class Tablet {
     var cFile = newCFile("C", size);
 
     synchronized (this) {
-      jobs.remove(job);
+      runningJobs.remove(job);
       files.removeAll(job.getFiles());
       files.add(cFile);
       rewritten += size;
@@ -96,25 +96,23 @@ public class Tablet {
 
   public synchronized boolean cancelCompactions(CompactionPlan plan,
       Collection<CompactionJob> prevRunning) {
-    if (plan.getJobs().isEmpty() || jobs.keySet().containsAll(plan.getJobs())) {
+
+    if (plan.getJobs().isEmpty()
+        || Sets.union(runningJobs, queuedJobs).containsAll(plan.getJobs())) {
       return false;
     }
 
-    if (jobs.isEmpty()) {
+    if (runningJobs.isEmpty() && queuedJobs.isEmpty()) {
       return true;
     }
 
-    Set<CompactionJob> running = new HashSet<>();
     Set<CompactableFile> runningFiles = new HashSet<>();
 
-    jobs.forEach((job, status) -> {
-      if (status == Status.RUNNING) {
-        running.add(job);
-        runningFiles.addAll(job.getFiles());
-      }
+    runningJobs.forEach(job -> {
+      runningFiles.addAll(job.getFiles());
     });
 
-    if (!running.equals(prevRunning)) {
+    if (!runningJobs.equals(prevRunning)) {
       return false;
     }
 
@@ -127,14 +125,14 @@ public class Tablet {
       }
     }
 
-    jobs.values().removeIf(status -> status == Status.QUEUED);
+    queuedJobs.clear();
 
     return true;
   }
 
   public synchronized Runnable newCompactor(CompactionJob job) {
 
-    jobs.keySet().forEach(sj -> {
+    Sets.union(runningJobs, queuedJobs).forEach(sj -> {
       if (!Collections.disjoint(sj.getFiles(), job.getFiles())) {
         throw new IllegalArgumentException();
       }
@@ -144,7 +142,7 @@ public class Tablet {
       throw new IllegalArgumentException();
     }
 
-    jobs.put(job, Status.QUEUED);
+    queuedJobs.add(job);
 
     return () -> {
       compact(job);
@@ -172,21 +170,12 @@ public class Tablet {
   }
 
   public synchronized Snapshot getSnapshot() {
-    List<CompactionJob> running = new ArrayList<>();
-    List<CompactionJob> queued = new ArrayList<>();
-
-    jobs.forEach((job, status) -> {
-      if (status == Status.RUNNING) {
-        running.add(job);
-      } else {
-        queued.add(job);
-      }
-    });
-
+    List<CompactionJob> running = new ArrayList<>(runningJobs);
+    List<CompactionJob> queued = new ArrayList<>(queuedJobs);
     return new Snapshot(files, running, queued, rewritten);
   }
 
   public synchronized boolean hasCompactions() {
-    return jobs.size() > 0;
+    return Sets.union(runningJobs, queuedJobs).size() > 0;
   }
 }

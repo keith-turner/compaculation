@@ -19,25 +19,24 @@ public class Main {
     Parameters params = new Parameters();
 
     params.numberOfTablets = 100;
-    params.compactionTicker = size -> size / 5000000;
+    params.compactionTicker = size -> size / 5_000_000;
     var plannerOpts = Map.of("maxOpen", "10", "executors",
-        "[{'name':'small','type':'internal','maxSize':'32M','numThreads':2},{'name':'medium','type':'internal','maxSize':'128M','numThreads':2},{'name':'large','type':'internal','numThreads':2}]");
+        "[{'name':'small','type':'internal','maxSize':'128M','numThreads':3},{'name':'large','type':'internal','numThreads':1}]");
     params.planner =
         new AccumuloPlanner(ratio, DefaultCompactionPlanner.class.getName(), plannerOpts);
 
     Random random = new Random();
 
     params.driver = (tick, tablets) -> {
-      if (tick > 100000)
+      if (tick > 60*60*24*3)
         return false;
 
       int nt = tablets.getNumTablets();
 
-      tablets.addFile(random.nextInt(nt), 500000 + random.nextInt(1000));
-      tablets.addFile(random.nextInt(nt), 500000 + random.nextInt(1000));
-      tablets.addFile(random.nextInt(nt), 500000 + random.nextInt(1000));
-      tablets.addFile(random.nextInt(nt), 500000 + random.nextInt(1000));
-
+      for(int i = 0; i<4; i++) {
+        tablets.addFile(random.nextInt(nt), 490_000 + random.nextInt(2000));
+      }
+      
       return true;
     };
 

@@ -1,5 +1,9 @@
 package compaculation.sim;
 
+import static java.util.stream.Collectors.counting;
+import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.toList;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -20,6 +24,8 @@ import org.apache.accumulo.core.spi.compaction.CompactionExecutorId;
 import org.apache.accumulo.core.spi.compaction.CompactionJob;
 import org.apache.accumulo.core.spi.compaction.CompactionPlan;
 
+import com.google.common.base.Strings;
+
 import compaculation.Driver.Tablets;
 import compaculation.Parameters;
 import compaculation.mgmt.CompaculationPlanner;
@@ -29,6 +35,7 @@ public class TabletServer implements Tablets {
   List<Tablet> tablets;
   CompaculationPlanner compactionManager;
   Map<CompactionExecutorId,ExecutorService> executors;
+  List<CompactionExecutorId> orderedCEIs;
 
   private static short extractPriority(Runnable r) {
     return ((Compactor) r).getJob().getPriority();
@@ -61,6 +68,9 @@ public class TabletServer implements Tablets {
         .forEach(ec -> executors.put(ec.id, newFixedThreadPool(ec.numThreads)));
 
     compactionManager = params.planner;
+
+    orderedCEIs = executors.keySet().stream().sorted().collect(toList());
+
   }
 
   public void addFile(int tablet, long size) {
@@ -98,19 +108,43 @@ public class TabletServer implements Tablets {
     }
   }
 
+  public void printSummaryHeader() {
+
+    String rcols = orderedCEIs.stream().map(cei -> "r-" + cei).collect(Collectors.joining(" "));
+    String qcols = orderedCEIs.stream().map(cei -> "q-" + cei).collect(Collectors.joining(" "));
+
+    System.out.println("tick fsumMin fsumMax fsumAvg " + rcols + " " + qcols + " rewritten size");
+  }
+
   public void printSummary(int tick) {
     var snapshots = tablets.stream().map(Tablet::getSnapshot).collect(Collectors.toList());
 
     var fsum = snapshots.stream().mapToInt(snap -> snap.files.size()).summaryStatistics();
-    var csum = snapshots.stream().mapToInt(snap -> snap.running.size() + snap.queued.size())
-        .summaryStatistics();
+
+    var perExecRunningCounts =
+        snapshots.stream().flatMap(snap -> snap.running.stream().map(job -> job.getExecutor()))
+            .collect(groupingBy(e -> e, counting()));
+    var perExecQueuedCounts =
+        snapshots.stream().flatMap(snap -> snap.queued.stream().map(job -> job.getExecutor()))
+            .collect(groupingBy(e -> e, counting()));
+
+    var queuedCounts = new ArrayList<String>();
+    var runningCounts = new ArrayList<String>();
+
+    for (CompactionExecutorId cei : orderedCEIs) {
+      queuedCounts.add(perExecQueuedCounts.getOrDefault(cei, 0L) + "");
+      runningCounts.add(perExecRunningCounts.getOrDefault(cei, 0L) + "");
+    }
+
+    String qCounts = queuedCounts.stream().collect(Collectors.joining(" "));
+    String rCounts = runningCounts.stream().collect(Collectors.joining(" "));
+
     long totalRewritten = snapshots.stream().mapToLong(snap -> snap.rewritten).sum();
     long totalSize = snapshots.stream().flatMap(snap -> snap.files.stream())
         .mapToLong(cf -> cf.getEstimatedSize()).sum();
 
-    System.out.printf("%d %d %d %f %d %d %f %,d %,d\n", tick, fsum.getMin(), fsum.getMax(),
-        fsum.getAverage(), csum.getMin(), csum.getMax(), csum.getAverage(), totalRewritten,
-        totalSize);
+    System.out.printf("%d %d %d %f %s %s %,d %,d\n", tick, fsum.getMin(), fsum.getMax(),
+        fsum.getAverage(), rCounts, qCounts, totalRewritten, totalSize);
   }
 
   public void print() {
