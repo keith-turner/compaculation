@@ -15,7 +15,7 @@ The simulation has the following properties.
 The following commands can be used to run the simulation.  To change the simulation, edit the [Parameters](src/compaculation/Parameters.java) object in [Main](src/compaculation/Main.java).
 
 ```
-$ mvn compile -q exec:java -Dexec.mainClass="compaculation.Main" -Dexec.args="2" > results.txt
+$ mvn compile -q exec:java -Dexec.mainClass="compaculation.Main" -Dexec.args="3" > results.txt
 ```
 
 After running, the following command will plot the average number of files per
