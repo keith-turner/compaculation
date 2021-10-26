@@ -14,6 +14,7 @@ public class Job implements CompactionJob {
   private final CompactionExecutorId executor;
   private final short prio;
   private final int hash;
+  private volatile boolean canceled = false;
 
   public Job(short prio, Collection<CompactableFile> files, CompactionExecutorId executor) {
     this.prio = prio;
@@ -47,6 +48,14 @@ public class Job implements CompactionJob {
     return CompactionKind.SYSTEM;
   }
 
+  public void markCanceled() {
+    canceled = true;
+  }
+  
+  public boolean isCanceled() {
+    return canceled;
+  }
+  
   @Override
   public int hashCode() {
     return hash;

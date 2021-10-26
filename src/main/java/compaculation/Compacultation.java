@@ -33,7 +33,8 @@ public class Compacultation {
 
     tserver.initiateCompactions();
     while (tserver.compactionsRunning()) {
-      sleep(100);
+      tick++;
+      sleep(1);
       tserver.initiateCompactions();
 
     }

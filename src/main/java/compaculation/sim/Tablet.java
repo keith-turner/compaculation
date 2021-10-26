@@ -20,6 +20,7 @@ import org.apache.accumulo.core.spi.compaction.CompactionPlan;
 import com.google.common.collect.Sets;
 
 import compaculation.Parameters;
+import compaculation.mgmt.Job;
 
 public class Tablet {
 
@@ -125,6 +126,8 @@ public class Tablet {
       }
     }
 
+    queuedJobs.forEach(job -> ((Job)job).markCanceled());
+    
     queuedJobs.clear();
 
     return true;

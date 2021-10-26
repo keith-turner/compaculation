@@ -24,30 +24,28 @@ import org.apache.accumulo.core.spi.compaction.CompactionExecutorId;
 import org.apache.accumulo.core.spi.compaction.CompactionJob;
 import org.apache.accumulo.core.spi.compaction.CompactionPlan;
 
-import com.google.common.base.Strings;
-
 import compaculation.Driver.Tablets;
 import compaculation.Parameters;
 import compaculation.mgmt.CompaculationPlanner;
+import compaculation.mgmt.Job;
 import compaculation.sim.Tablet.Snapshot;
 
 public class TabletServer implements Tablets {
   List<Tablet> tablets;
   CompaculationPlanner compactionManager;
-  Map<CompactionExecutorId,ExecutorService> executors;
+  Map<CompactionExecutorId,ThreadPoolExecutor> executors;
   List<CompactionExecutorId> orderedCEIs;
+  long initiateCallCounter = 0;
 
   private static short extractPriority(Runnable r) {
     return ((Compactor) r).getJob().getPriority();
   }
 
-  private static ExecutorService newFixedThreadPool(int nThreads) {
+  private static ThreadPoolExecutor newFixedThreadPool(int nThreads) {
 
     var comparator = Comparator.comparingInt(TabletServer::extractPriority).reversed();
 
     PriorityBlockingQueue<Runnable> queue = new PriorityBlockingQueue<Runnable>(100, comparator);
-
-    // TODO periodically call removeIf on queue to remove canceled jobs
 
     return new ThreadPoolExecutor(nThreads, nThreads, 0L, TimeUnit.MILLISECONDS, queue);
   }
@@ -87,6 +85,10 @@ public class TabletServer implements Tablets {
     return false;
   }
 
+  private static boolean isCanceled(Runnable r) {
+    return ((Job)(((Compactor) r).getJob())).isCanceled();
+  }
+  
   public void initiateCompactions() {
     for (Tablet tablet : tablets) {
       Snapshot snapshot = tablet.getSnapshot();
@@ -105,6 +107,11 @@ public class TabletServer implements Tablets {
           executors.get(job.getExecutor()).execute(new Compactor(job, ct));
         }
       }
+    }
+    
+    if(initiateCallCounter++ % 60 == 0) {
+      // periodically remove canceled jobs that are sitting in the queue
+      executors.values().forEach(threadPool -> threadPool.getQueue().removeIf(TabletServer::isCanceled));
     }
   }
 
