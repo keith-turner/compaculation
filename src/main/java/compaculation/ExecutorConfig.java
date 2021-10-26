@@ -1,12 +1,14 @@
 package compaculation;
 
+import org.apache.accumulo.core.spi.compaction.CompactionExecutorId;
+
 public class ExecutorConfig {
 
-  public final String name;
+  public final CompactionExecutorId id;
   public final int numThreads;
 
-  public ExecutorConfig(String name, int numThreads) {
-    this.name = name;
+  public ExecutorConfig(CompactionExecutorId id, int numThreads) {
+    this.id = id;
     this.numThreads = numThreads;
   }
 }

@@ -1,11 +1,10 @@
 Compaculation : An Accumulo Compaction Simulator
 ================================================
 
-This project was created to simulate allowing multiple concurrent compactions
-per tablet as described in
-[#564](https://github.com/apache/accumulo/issues/564).  The simulation includes
-multiple tablets and multiple executors.  In the simulation multiple concurrent
-compactions can be scheduled for each tablet.
+This project simulates multiple concurrent compactions per tablet running on
+multiple executors.  The simulation includes multiple tablets and multiple
+executors.  The simulation uses an Accumulo compaction planner.  This allows
+seeing how a planner behaves in different scenarios. 
 
 The simulation has the following properties.
 
@@ -16,16 +15,21 @@ The simulation has the following properties.
 The following commands can be used to run the simulation.  To change the simulation, edit the [Parameters](src/compaculation/Parameters.java) object in [Main](src/compaculation/Main.java).
 
 ```
-$ mvn compile
-$ java -cp target/classes compaculation.Main 3 NEW > results.txt
+$ mvn compile -q exec:java -Dexec.mainClass="compaculation.Main" -Dexec.args="2" > results.txt
 ```
 
 After running, the following command will plot the average number of files per
-tablet over the simulation.
+tablet and the compactions queued per executor over the simulation.
 
-```
+```bash
+# roll data for each 100 ticks of the simulation into a single line.  This
+# command assumes two compaction executors, if different the will need change all
+# col numbers in the commands below.
+# 
+$ cat results.txt | datamash -W -H -f bin:100 1 | datamash -H -g 11 mean 4 mean 5 mean 6 mean 7 mean 8 > results-summary.txt
 $ gnuplot
-gnuplot> plot 'results.txt' using 1:4
+gnuplot> set key top left autotitle columnhead
+gnuplot> plot 'results-summary.txt' using 1:2 with lines , '' using 1:5 with lines, '' using 1:6 with lines
 ```
 
 

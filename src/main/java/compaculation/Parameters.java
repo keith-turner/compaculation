@@ -1,9 +1,8 @@
 package compaculation;
 
-import java.util.List;
 import java.util.function.Function;
 
-import compaculation.mgmt.CompactionManager;
+import compaculation.mgmt.CompaculationPlanner;
 
 /**
  * Parameters for running a compaction simulation.
@@ -17,10 +16,7 @@ public class Parameters {
   public int numberOfTablets;
 
   // compaction manager to use for the simulation
-  public CompactionManager compactionManager;
-
-  // compaction executors to create for the simulation
-  public List<ExecutorConfig> executors;
+  public CompaculationPlanner planner;
 
   // test driver that creates files and decides when the simulation should stop
   public Driver driver;

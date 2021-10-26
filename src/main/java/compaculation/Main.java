@@ -1,14 +1,15 @@
 package compaculation;
 
-import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
-import compaculation.mgmt.DefaultCompactionManager;
-import compaculation.mgmt.TieredCompactionManager;
+import org.apache.accumulo.core.spi.compaction.DefaultCompactionPlanner;
+
+import compaculation.mgmt.AccumuloPlanner;
 
 public class Main {
   public static void main(String[] args) {
-    if (args.length != 2) {
+    if (args.length != 1) {
       printUsage();
       return;
     }
@@ -18,35 +19,24 @@ public class Main {
     Parameters params = new Parameters();
 
     params.numberOfTablets = 100;
-    params.compactionTicker = size -> size / 5000000;
-    switch (args[1]) {
-      case "NEW":
-        params.compactionManager = new TieredCompactionManager(ratio);
-        break;
-      case "OLD":
-        params.compactionManager = new DefaultCompactionManager(ratio);
-        break;
-      default:
-        printUsage();
-        return;
-    }
-
-    params.executors = List.of(new ExecutorConfig("huge", 2), new ExecutorConfig("large", 2),
-        new ExecutorConfig("medium", 2), new ExecutorConfig("small", 2));
+    params.compactionTicker = size -> size / 5_000_000;
+    var plannerOpts = Map.of("maxOpen", "10", "executors",
+        "[{'name':'small','type':'internal','maxSize':'128M','numThreads':3},{'name':'large','type':'internal','numThreads':3}]");
+    params.planner =
+        new AccumuloPlanner(ratio, DefaultCompactionPlanner.class.getName(), plannerOpts);
 
     Random random = new Random();
 
     params.driver = (tick, tablets) -> {
-      if (tick > 100000)
+      if (tick > 60*60*24*3)
         return false;
 
       int nt = tablets.getNumTablets();
 
-      tablets.addFile(random.nextInt(nt), 500000 + random.nextInt(1000));
-      tablets.addFile(random.nextInt(nt), 500000 + random.nextInt(1000));
-      tablets.addFile(random.nextInt(nt), 500000 + random.nextInt(1000));
-      tablets.addFile(random.nextInt(nt), 500000 + random.nextInt(1000));
-
+      for(int i = 0; i<4; i++) {
+        tablets.addFile(random.nextInt(nt), 490_000 + random.nextInt(2000));
+      }
+      
       return true;
     };
 
@@ -54,6 +44,6 @@ public class Main {
   }
 
   private static void printUsage() {
-    System.err.println("Usage : " + Main.class.getName() + " <ratio> OLD|NEW");
+    System.err.println("Usage : " + Main.class.getName() + " <ratio>");
   }
 }

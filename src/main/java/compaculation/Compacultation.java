@@ -22,6 +22,8 @@ public class Compacultation {
 
     int tick = 0;
 
+    tserver.printSummaryHeader();
+
     while (params.driver.drive(tick, tserver)) {
       tserver.printSummary(tick);
       tick++;
@@ -31,14 +33,15 @@ public class Compacultation {
 
     tserver.initiateCompactions();
     while (tserver.compactionsRunning()) {
-      sleep(100);
+      tick++;
+      sleep(1);
       tserver.initiateCompactions();
 
     }
 
-    //tserver.print();
+    // tserver.print();
     tserver.printSummary(tick);
-    
+
     tserver.shutdown();
   }
 
